@@ -3,125 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Military Summary Map</title>
+  <title>Military Summary Map - Full Frontline</title>
 
-  <!-- Tailwind CSS для стилей -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Leaflet CSS и JS для работы карты -->
+  <!-- Leaflet CSS и JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Переопределение стилей всплывающих окон под тёмную тему */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border: 1px solid #334155;
+    }
+  </style>
 </head>
 <body class="bg-slate-950 text-white font-sans h-screen flex flex-col m-0 overflow-hidden">
 
   <!-- Шапка -->
-  <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
-    <h1 class="text-md font-bold text-red-500 uppercase tracking-wider">
-      Military Summary Map
-    </h1>
-    <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700">
-      День: 2026-07-24
+  <header class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+      <h1 class="text-sm font-bold text-red-500 uppercase tracking-wider">
+        Military Summary Map
+      </h1>
+    </div>
+    <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 text-slate-300">
+      24 Июля 2026
     </span>
   </header>
 
-  <!-- Основной контент: Карта + Сводка -->
+  <!-- Основной блок -->
   <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
     <!-- Контейнер карты -->
-    <div class="flex-1 h-full relative p-2">
-      <div id="map" class="h-full w-full rounded-xl z-0"></div>
+    <div class="flex-1 h-full relative p-1">
+      <div id="map" class="h-full w-full rounded-lg z-0"></div>
     </div>
 
-    <!-- Боковая панель со сводкой -->
+    <!-- Боковая панель со сводкой по секторам -->
     <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/90 overflow-y-auto">
-      <h2 class="font-semibold text-sm mb-3 text-slate-300">Сводка за день</h2>
-      <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700 text-sm mb-3">
-        <span class="text-xs text-red-400 block mb-1">10:30 • Центральный сектор</span>
-        <p id="summary-text" class="text-slate-300 text-xs">
-          Обновлены границы зон контроля на основе подтвержденных геопривязок.
-        </p>
+      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Сводка по секторам</h2>
+      
+      <div class="space-y-2">
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-xs">
+          <span class="text-red-400 font-bold block mb-1">Покровский / Донецкий сектор</span>
+          <p class="text-slate-300">Высокая активность боёв. Корректировка серой зоны.</p>
+        </div>
+
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-xs">
+          <span class="text-amber-400 font-bold block mb-1">Купянский сектор</span>
+          <p class="text-slate-300">Позиционные бои вдоль линии соприкосновения.</p>
+        </div>
+
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-xs">
+          <span class="text-blue-400 font-bold block mb-1">Херсонский сектор (Днепр)</span>
+          <p class="text-slate-300">Взаимные артиллерийские удары по руслу реки.</p>
+        </div>
       </div>
     </aside>
   </div>
 
-  <!-- Шкала переключения дат (Timeline) -->
+  <!-- Шкала времени -->
   <footer class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2 z-10">
-    <button id="prev-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">
-      ← Пред. день
+    <button id="prev-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700 active:scale-95 transition">
+      ← 23 Июля
     </button>
-    <span class="text-xs text-slate-400">Выбор даты</span>
-    <button id="next-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">
-      След. день →
+    <span class="text-xs text-slate-400">Хронология</span>
+    <button id="next-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700 active:scale-95 transition">
+      24 Июля →
     </button>
   </footer>
 
-  <!-- Логика карты -->
+  <!-- Скрипт карты -->
   <script>
-    // 1. Инициализируем карту
-    const map = L.map('map').setView([48.0, 37.8], 10);
+    // 1. Инициализируем карту с центром на весь регион (Харьков — Херсон)
+    const map = L.map('map', {
+      zoomControl: true
+    }).setView([48.2, 36.8], 6.5);
 
-    // Подключаем плитки OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
+    // 2. Тёмная картографическая подложка (CartoDB Dark Matter)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19
     }).addTo(map);
 
-    // 2. Добавляем полигон фронта (серая/оспариваемая зона)
-    const sampleFrontlineData = {
+    // 3. Данные всей линии фронта (Примерный контур от Севера к Югу)
+    const frontlineData = {
       "type": "FeatureCollection",
       "features": [
         {
           "type": "Feature",
-          "properties": { "name": "Оспариваемая территория" },
+          "properties": { "name": "Зона активных боевых действий" },
           "geometry": {
             "type": "Polygon",
-            "coordinates": [
-              [
-                [37.80, 48.00],
-                [37.90, 48.05],
-                [37.85, 48.15],
-                [37.75, 48.10],
-                [37.80, 48.00]
-              ]
-            ]
+            "coordinates": [[
+              // Купянск / Лиман
+              [37.60, 49.80],
+              [38.00, 49.30],
+              [38.20, 48.90],
+              // Бахмут / Покровск / Донецк
+              [38.00, 48.50],
+              [37.50, 48.20],
+              [37.20, 47.80],
+              // Запорожье / Угледар / Орехов
+              [36.50, 47.50],
+              [35.80, 47.40],
+              [35.20, 47.50],
+              // Херсон (Днепр)
+              [34.00, 46.90],
+              [32.80, 46.50],
+              // Возвратная полоса серой зоны
+              [32.50, 46.40],
+              [33.80, 46.80],
+              [35.00, 47.30],
+              [36.20, 47.30],
+              [37.00, 47.60],
+              [37.30, 48.00],
+              [37.70, 48.40],
+              [37.80, 48.80],
+              [37.40, 49.20],
+              [37.30, 49.70],
+              [37.60, 49.80]
+            ]]
           }
         }
       ]
     };
 
-    L.geoJSON(sampleFrontlineData, {
+    // Отрисовка полосы фронта
+    L.geoJSON(frontlineData, {
       style: {
-        color: '#eab308',
-        fillColor: '#ca8a04',
-        fillOpacity: 0.4,
-        weight: 2
+        color: '#ef4444',       // Красная граница
+        fillColor: '#ca8a04',   // Желтый/оранжевый забор
+        fillOpacity: 0.35,
+        weight: 2,
+        dashArray: '4, 4'
       }
     }).addTo(map);
 
-    // 3. Добавляем маркер события
+    // 4. Маркеры основных секторов
+    const sectors = [
+      { name: "Купянский сектор", coords: [49.71, 37.61], info: "Позиционные бои" },
+      { name: "Покровский сектор", coords: [48.28, 37.18], info: "Высокая интенсивность" },
+      { name: "Запорожский сектор", coords: [47.48, 35.82], info: "Артиллерийские дуэли" },
+      { name: "Херсонский сектор", coords: [46.63, 32.61], info: "Контроль береговой линии Днепра" }
+    ];
+
     const customIcon = L.icon({
       iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
       shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41]
+      iconSize: [20, 32],
+      iconAnchor: [10, 32]
     });
 
-    L.marker([48.02, 37.82], { icon: customIcon })
-      .addTo(map)
-      .bindPopup('<b style="color: black;">Локальные бои</b><br><span style="color: black;">Фиксация активности.</span>');
+    sectors.forEach(sector => {
+      L.marker(sector.coords, { icon: customIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div class="text-xs">
+            <b class="text-red-400 block mb-1">${sector.name}</b>
+            <span>${sector.info}</span>
+          </div>
+        `);
+    });
 
-    // 4. Переключение дат
+    // 5. Переключение дат
     const dateBadge = document.getElementById('date-badge');
-    const summaryText = document.getElementById('summary-text');
-    
     document.getElementById('prev-btn').addEventListener('click', () => {
-      dateBadge.innerText = 'День: 2026-07-23';
-      summaryText.innerText = 'Архивные данные за 23 июля. Позиции без изменений.';
+      dateBadge.innerText = '23 Июля 2026';
     });
-
     document.getElementById('next-btn').addEventListener('click', () => {
-      dateBadge.innerText = 'День: 2026-07-24';
-      summaryText.innerText = 'Обновлены границы зон контроля на основе подтвержденных геопривязок.';
+      dateBadge.innerText = '24 Июля 2026';
     });
   </script>
 </body>
 </html>
-    
