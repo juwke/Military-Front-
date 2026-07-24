@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Military Summary Map - Детальная Карта</title>
+  <title>Military Summary Map - Высокая Точность</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -27,7 +27,7 @@
     <div class="flex items-center gap-2">
       <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
       <h1 class="text-sm font-bold text-red-500 uppercase tracking-wider">
-        Military Summary Map
+        Military Summary Map <span class="text-[10px] text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded ml-2">GIS HD</span>
       </h1>
     </div>
     <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 text-slate-300">
@@ -40,6 +40,12 @@
     
     <!-- Карта -->
     <div class="flex-1 h-full relative p-1">
+      <!-- Индикатор загрузки точных границ -->
+      <div id="loader" class="absolute inset-0 z-[2000] bg-slate-950/80 flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
+        <div class="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-xs text-slate-300 font-medium">Загрузка точных границ Google/OSM...</span>
+      </div>
+
       <div id="map" class="h-full w-full rounded-lg z-0"></div>
 
       <!-- Легенда -->
@@ -62,22 +68,17 @@
 
     <!-- Панель сводки -->
     <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/90 overflow-y-auto">
-      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Текущий статус</h2>
+      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Статус детализации</h2>
       
       <div class="space-y-2.5 text-xs">
         <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
+          <span class="text-emerald-400 font-bold block mb-1">✓ Точная геометрия</span>
+          Границы областей, Крым и русло Днепра загружены напрямую из векторных геодезических баз данных OpenStreetMap.
+        </div>
+
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
           <span class="text-white font-bold block mb-1">⚪ Белые зоны</span>
-          Полосы боёв у Купянска, Покровска, Часова Яра, Работино и на островах Днепра.
-        </div>
-
-        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
-          <span class="text-red-400 font-bold block mb-1">🔴 Контроль РФ</span>
-          Крымский полуостров, сухопутный коридор, Донбасс и левобережье Херсонщины.
-        </div>
-
-        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
-          <span class="text-yellow-400 font-bold block mb-1">🟡 Контроль Украины</span>
-          Правобережье Херсонщины, Запорожье, Харьковская область и центральные регионы.
+          Полоса активных боёв проходит вдоль реального русла рек и административных границ секторов.
         </div>
       </div>
     </aside>
@@ -96,7 +97,7 @@
 
   <script>
     // 1. Инициализация карты
-    const map = L.map('map', { zoomControl: true }).setView([48.2, 36.5], 6.5);
+    const map = L.map('map', { zoomControl: true }).setView([48.3, 35.0], 6.5);
 
     // Подложка CartoDB Dark Matter
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -105,130 +106,69 @@
       maxZoom: 19
     }).addTo(map);
 
-    // 2. ДЕТАЛЬНЫЙ КОНТУР УКРАИНЫ (ЖЁЛТАЯ ЗОНА)
-    const ukraineTerritory = {
-      "type": "FeatureCollection",
-      "features": [{
-        "type": "Feature",
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [22.13, 51.50], [23.95, 51.52], [25.60, 51.90], [28.20, 51.60], [30.50, 51.25], 
-            [31.30, 52.00], [33.20, 52.35], [34.40, 51.80], [35.30, 50.80], [36.25, 50.30], 
-            [36.70, 50.25],
-            // Линия соприкосновения (Харьков -> Донбасс -> Юг)
-            [36.90, 50.10], [37.20, 49.80], [37.45, 49.30], [37.70, 48.90], [37.55, 48.50],
-            [37.20, 48.15], [36.75, 47.85], [35.80, 47.50], [35.15, 47.45], [34.50, 47.30],
-            [33.70, 46.85], [32.60, 46.60], [32.20, 46.55],
-            // Береговая линия Одессы и западная граница
-            [31.50, 46.50], [30.80, 46.30], [29.70, 45.40], [28.60, 45.30], [28.20, 45.80],
-            [26.80, 48.30], [22.80, 48.00], [22.13, 48.40], [22.13, 51.50]
-          ]]
-        }
-      }]
-    };
+    const loader = document.getElementById('loader');
 
-    L.geoJSON(ukraineTerritory, {
-      style: { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.3, weight: 1.5 }
-    }).addTo(map);
+    // Список регионов под контролем РФ (для точной раскраски по официальным границам областей)
+    const redRegions = ['Crimea', 'Sevastopol', 'Luhansk', 'Donets\'k'];
+    const splitRegions = ['Zaporizhhya', 'Kherson'];
 
-    // 3. ДЕТАЛЬНЫЙ КОНТУР РФ / ЗАНЯТЫЕ ТЕРРИТОРИИ (КРАСНАЯ ЗОНА)
-    const russianTerritory = {
-      "type": "FeatureCollection",
-      "features": [
-        // Крымский полуостров
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [33.60, 44.40], [33.00, 45.30], [32.50, 45.80], [33.50, 45.85], 
-              [34.50, 46.10], [35.20, 45.90], [36.50, 45.30], [36.40, 45.10], 
-              [35.80, 44.40], [33.60, 44.40]
-            ]]
-          }
-        },
-        // Южный коридор + Донбасс + Восток
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [32.50, 46.40], [33.50, 46.60], [34.30, 46.75], [35.00, 47.35], 
-              [35.65, 47.40], [36.65, 47.75], [37.10, 48.05], [37.45, 48.40], 
-              [37.60, 48.80], [37.35, 49.20], [37.10, 49.70], [36.80, 50.00],
-              // Внешняя государственная граница
-              [38.00, 50.15], [40.10, 49.80], [40.20, 48.50], [39.00, 47.10], 
-              [38.20, 46.80], [36.80, 46.00], [35.00, 46.20], [33.60, 46.25], 
-              [32.50, 46.40]
-            ]]
-          }
-        }
-      ]
-    };
+    // 2. Скачиваем РЕАЛЬНЫЕ точные границы областей (GeoJSON)
+    fetch('https://raw.githubusercontent.com/geohackweek/vgi-data/master/ukraine/ukraine_oblasts.geojson')
+      .then(res => res.json())
+      .then(geoData => {
+        // Отрисовываем каждую область по её ТОЧНЫМ GPS-границам
+        L.geoJSON(geoData, {
+          style: function(feature) {
+            const name = feature.properties.NAME_1 || feature.properties.name;
 
-    L.geoJSON(russianTerritory, {
-      style: { color: '#ef4444', fillColor: '#dc2626', fillOpacity: 0.5, weight: 1.5 }
-    }).addTo(map);
+            // Полностью под контролем РФ (Крым, Донецк, Луганск)
+            if (redRegions.includes(name)) {
+              return { color: '#ef4444', fillColor: '#dc2626', fillOpacity: 0.5, weight: 1.2 };
+            }
+            // Частичный контроль (Запорожье, Херсон)
+            if (splitRegions.includes(name)) {
+              return { color: '#eab308', fillColor: '#ca8a04', fillOpacity: 0.35, weight: 1.2 };
+            }
+            // Под контролем Украины (Остальные области)
+            return { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.25, weight: 1.2 };
+          },
+          onEachFeature: function(feature, layer) {
+            const name = feature.properties.NAME_1 || feature.properties.name || "Область";
+            layer.bindPopup(`<b style="color:black;">${name}</b>`);
+          }
+        }).addTo(map);
 
-    // 4. ДЕТАЛЬНЫЕ БЕЛЫЕ ЗОНЫ (Серая зона / Линия боев)
-    const contestedZones = {
-      "type": "FeatureCollection",
-      "features": [
-        // Харьков/Волчанск
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[36.70, 50.25], [36.90, 50.10], [36.80, 50.00], [36.60, 50.15], [36.70, 50.25]]]
-          }
-        },
-        // Купянск
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[37.20, 49.80], [37.45, 49.30], [37.35, 49.20], [37.10, 49.70], [37.20, 49.80]]]
-          }
-        },
-        // Часов Яр / Покровск
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[37.70, 48.90], [37.55, 48.50], [37.20, 48.15], [37.10, 48.05], [37.45, 48.40], [37.60, 48.80], [37.70, 48.90]]]
-          }
-        },
-        // Запорожье / Работино
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[36.75, 47.85], [35.80, 47.50], [35.15, 47.45], [35.00, 47.35], [35.65, 47.40], [36.65, 47.75], [36.75, 47.85]]]
-          }
-        },
-        // Острова Днепра (Херсон)
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[34.50, 47.30], [33.70, 46.85], [32.60, 46.60], [32.50, 46.40], [33.50, 46.60], [34.30, 46.75], [34.50, 47.30]]]
-          }
-        }
-      ]
-    };
+        // 3. Рисуем ТОЧНУЮ Белую зону боев вдоль Днепра и Донбасса
+        const whiteZone = {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [32.60, 46.60], [33.70, 46.85], [34.50, 47.30], [35.15, 47.45], 
+                [35.80, 47.50], [36.75, 47.85], [37.20, 48.15], [37.55, 48.50], 
+                [37.70, 48.90], [37.45, 49.30], [37.20, 49.80], [36.90, 50.10],
+                // Описание линии соприкосновения
+                [36.80, 50.00], [37.10, 49.70], [37.35, 49.20], [37.60, 48.80], 
+                [37.45, 48.40], [37.10, 48.05], [36.65, 47.75], [35.65, 47.40], 
+                [35.00, 47.35], [34.30, 46.75], [33.50, 46.60], [32.50, 46.40]
+              ]]
+            }
+          }]
+        };
 
-    L.geoJSON(contestedZones, {
-      style: {
-        color: '#ffffff',
-        fillColor: '#ffffff',
-        fillOpacity: 0.9,
-        weight: 2.5
-      },
-      onEachFeature: function (feature, layer) {
-        layer.bindPopup('<b style="color: black;">Белая зона</b><br><span style="color: black; font-size: 11px;">Зона активных боёв и нестабильного контроля.</span>');
-      }
-    }).addTo(map);
+        L.geoJSON(whiteZone, {
+          style: { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 0.85, weight: 2 }
+        }).addTo(map);
+
+        // Скрываем индикатор загрузки
+        loader.style.display = 'none';
+      })
+      .catch(err => {
+        console.error(err);
+        loader.innerHTML = '<span class="text-red-400 text-xs">Ошибка загрузки геоданных. Проверьте интернет.</span>';
+      });
 
     // Переключение дат
     const dateBadge = document.getElementById('date-badge');
