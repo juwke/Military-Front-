@@ -3,275 +3,333 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Military Summary Map - Высокая Точность</title>
-
-  <!-- Tailwind CSS -->
+  <title>World Conquest - Глобальная Стратегия</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Leaflet CSS и JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <style>
-    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-      background-color: #0f172a !important;
-      color: #f8fafc !important;
-      border: 1px solid #334155;
-    }
-  </style>
 </head>
-<body class="bg-slate-950 text-white font-sans h-screen flex flex-col m-0 overflow-hidden">
+<body class="bg-slate-950 text-slate-100 font-sans h-screen flex flex-col m-0 overflow-hidden select-none">
 
-  <!-- ПОЛНОЭКРАННЫЙ ЭКРАН ЗАГРУЗКИ -->
-  <div id="loader-screen" class="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-4 transition-opacity duration-500">
-    <div class="flex flex-col items-center gap-5 text-center max-w-xs w-full">
-      
-      <!-- Анимация загрузки -->
-      <div class="relative flex items-center justify-center">
-        <div id="spinner" class="w-16 h-16 border-4 border-slate-800 border-t-red-500 rounded-full animate-spin"></div>
-        <div class="absolute w-6 h-6 bg-red-500/20 rounded-full animate-ping"></div>
+  <!-- Экран выбора страны -->
+  <div id="select-screen" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6">
+    <div class="max-w-xl w-full text-center space-y-6">
+      <div>
+        <h1 class="text-3xl font-extrabold text-amber-500 tracking-wider uppercase mb-2">WORLD CONQUEST</h1>
+        <p class="text-sm text-slate-400">Выберите стартовую державу для мирового господства</p>
       </div>
-
-      <!-- Текстовый статус -->
-      <div class="space-y-1">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Military Summary Map</h2>
-        <p id="loader-status" class="text-xs text-slate-400">Проверка подключения...</p>
+      <div id="country-select-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-left max-h-80 overflow-y-auto p-1">
+        <!-- Кнопки стран генерируются из JS -->
       </div>
-
-      <!-- Прогресс-бар -->
-      <div class="w-full bg-slate-900 border border-slate-800 h-2 rounded-full overflow-hidden p-0.5">
-        <div id="loader-bar" class="bg-red-500 h-full w-1/12 rounded-full transition-all duration-300"></div>
-      </div>
-
-      <!-- Кнопка пропуска на случай очень плохого интернета -->
-      <button id="skip-btn" onclick="unlockSite('Офлайн-режим (Пропущено пользователем)')" class="hidden text-xs text-slate-500 hover:text-slate-300 underline mt-2 transition">
-        Открыть карту без загрузки HD-сектора
-      </button>
-
     </div>
   </div>
 
-  <!-- Уведомление об офлайн-режиме -->
-  <div id="offline-toast" class="hidden fixed top-16 right-4 z-[2000] bg-amber-500/90 text-slate-950 text-xs font-semibold px-3 py-2 rounded shadow-lg backdrop-blur border border-amber-400 transition-all">
-    ⚠️ Нет сети: Загружена локальная упрощенная карта
-  </div>
-
-  <!-- Шапка -->
-  <header class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
-    <div class="flex items-center gap-2">
-      <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-      <h1 class="text-sm font-bold text-red-500 uppercase tracking-wider">
-        Military Summary Map <span id="mode-badge" class="text-[10px] text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded ml-2">GIS HD</span>
-      </h1>
+  <!-- Шапка состояния игрока -->
+  <header class="p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap justify-between items-center gap-3 z-10 shadow-lg">
+    <div class="flex items-center gap-3">
+      <span id="player-flag" class="text-2xl">🌍</span>
+      <div>
+        <h1 id="player-name" class="font-bold text-sm text-amber-400">Выберите страну</h1>
+        <p id="world-control" class="text-[11px] text-slate-400">Мировой контроль: 0%</p>
+      </div>
     </div>
-    <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 text-slate-300">
-      24 Июля 2026
-    </span>
+
+    <div class="flex items-center gap-4 text-xs font-semibold">
+      <div class="bg-slate-800 px-3 py-1.5 rounded border border-slate-700">
+        💰 Золото: <span id="stat-gold" class="text-amber-400 font-bold">100</span> (+<span id="stat-income">20</span>/ход)
+      </div>
+      <div class="bg-slate-800 px-3 py-1.5 rounded border border-slate-700">
+        ⚔️ Армия: <span id="stat-troops" class="text-red-400 font-bold">50</span>
+      </div>
+      <div class="bg-slate-800 px-3 py-1.5 rounded border border-slate-700">
+        📅 Ход: <span id="stat-turn" class="text-blue-400 font-bold">1</span>
+      </div>
+    </div>
   </header>
 
-  <!-- Основной блок -->
-  <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+  <!-- Главное игровое поле -->
+  <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
     
-    <!-- Карта -->
-    <div class="flex-1 h-full relative p-1">
-      <div id="map" class="h-full w-full rounded-lg z-0"></div>
-
-      <!-- Легенда -->
-      <div class="absolute bottom-4 left-4 z-[1000] bg-slate-900/95 border border-slate-700 p-3 rounded-lg text-xs space-y-2 backdrop-blur-sm shadow-2xl">
-        <div class="font-bold text-slate-300 mb-1 border-b border-slate-800 pb-1">Легенда контроля:</div>
-        <div class="flex items-center gap-2.5">
-          <span class="w-3.5 h-3.5 rounded bg-red-600/70 border border-red-500 inline-block"></span>
-          <span class="text-slate-200">Под контролем РФ</span>
-        </div>
-        <div class="flex items-center gap-2.5">
-          <span class="w-3.5 h-3.5 rounded bg-yellow-500/60 border border-yellow-400 inline-block"></span>
-          <span class="text-slate-200">Под контролем Украины</span>
-        </div>
-        <div class="flex items-center gap-2.5">
-          <span class="w-3.5 h-3.5 rounded bg-white border border-slate-300 inline-block shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>
-          <span class="text-slate-200">Белая зона (Оспариваемая / Бои)</span>
-        </div>
+    <!-- Левая панель: Карта/Список государств -->
+    <main class="flex-1 p-4 overflow-y-auto bg-slate-950">
+      <h2 class="text-xs uppercase font-bold text-slate-400 tracking-wider mb-3">Мировые Державы</h2>
+      <div id="countries-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- Список стран -->
       </div>
-    </div>
+    </main>
 
-    <!-- Панель сводки -->
-    <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/90 overflow-y-auto">
-      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Статус детализации</h2>
+    <!-- Правая панель: Действия и Лог войны -->
+    <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/80 flex flex-col justify-between">
       
-      <div class="space-y-2.5 text-xs">
-        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
-          <span id="status-title" class="text-emerald-400 font-bold block mb-1">✓ Точная геометрия</span>
-          <p id="status-desc">Границы областей и линия фронта загружены из вектора OpenStreetMap.</p>
+      <!-- Панель приказа -->
+      <div class="space-y-4">
+        <h2 class="text-xs uppercase font-bold text-slate-400 tracking-wider">Приказы</h2>
+        
+        <div class="space-y-2">
+          <button id="btn-recruit" onclick="recruitTroops()" class="w-full bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-xs font-bold py-2.5 px-3 rounded flex justify-between items-center transition">
+            <span>⚔️ Нанять дивизию (+10 армия)</span>
+            <span class="text-amber-400 font-normal">30 💰</span>
+          </button>
+
+          <button id="btn-eco" onclick="upgradeEconomy()" class="w-full bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-xs font-bold py-2.5 px-3 rounded flex justify-between items-center transition">
+            <span>🏭 Развить экономику (+10 доход)</span>
+            <span class="text-amber-400 font-normal">50 💰</span>
+          </button>
         </div>
 
-        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
-          <span class="text-white font-bold block mb-1">⚪ Белые зоны</span>
-          Полоса активных боёв проходит вдоль реального русла рек и границ секторов.
+        <hr class="border-slate-800" />
+
+        <!-- Выбранная цель для атаки -->
+        <div id="target-card" class="bg-slate-800/50 p-3 rounded border border-slate-700 text-xs space-y-2 hidden">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-slate-200">Цель атаки:</span>
+            <span id="target-name" class="font-bold text-red-400">-</span>
+          </div>
+          <div class="text-[11px] text-slate-400 flex justify-between">
+            <span>Защита врага:</span>
+            <span id="target-troops" class="text-red-400 font-bold">0</span>
+          </div>
+          <button id="btn-attack" onclick="attackTarget()" class="w-full bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold py-2 rounded text-xs transition shadow-lg shadow-red-900/30">
+            💥 НАПАТЬ!
+          </button>
         </div>
       </div>
+
+      <!-- Военный журнал -->
+      <div class="mt-4 flex-1 flex flex-col min-h-[140px]">
+        <h3 class="text-[11px] uppercase font-bold text-slate-500 mb-1">Военные Хроники</h3>
+        <div id="battle-log" class="flex-1 bg-slate-950 border border-slate-800 rounded p-2 text-[11px] text-slate-300 overflow-y-auto space-y-1 font-mono">
+          <p class="text-slate-500">// Выберите страну для начала кампании.</p>
+        </div>
+      </div>
+
+      <!-- Кнопка завершения хода -->
+      <button onclick="endTurn()" class="w-full mt-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded text-xs tracking-wider uppercase transition shadow-lg shadow-amber-500/20 active:scale-95">
+        Завершить Ход ➔
+      </button>
+
     </aside>
   </div>
 
-  <!-- Подвал -->
-  <footer class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2 z-10">
-    <button id="prev-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700 active:scale-95 transition">
-      ← 23 Июля
-    </button>
-    <span class="text-xs text-slate-400">Хронология</span>
-    <button id="next-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700 active:scale-95 transition">
-      24 Июля →
-    </button>
-  </footer>
-
   <script>
-    const loaderScreen = document.getElementById('loader-screen');
-    const loaderStatus = document.getElementById('loader-status');
-    const loaderBar = document.getElementById('loader-bar');
-    const skipBtn = document.getElementById('skip-btn');
-    const offlineToast = document.getElementById('offline-toast');
+    // База данных государств
+    const initialCountries = [
+      { id: 'USA', name: 'США', flag: '🇺🇸', troops: 80, income: 35, owner: 'AI' },
+      { id: 'CHN', name: 'Китай', flag: '🇨🇳', troops: 90, income: 40, owner: 'AI' },
+      { id: 'RUS', name: 'Россия', flag: '🇷🇺', troops: 85, income: 30, owner: 'AI' },
+      { id: 'DEU', name: 'Германия', flag: '🇩🇪', troops: 50, income: 35, owner: 'AI' },
+      { id: 'GBR', name: 'Великобритания', flag: '🇬🇧', troops: 45, income: 30, owner: 'AI' },
+      { id: 'FRA', name: 'Франция', flag: '🇫🇷', troops: 45, income: 30, owner: 'AI' },
+      { id: 'IND', name: 'Индия', flag: '🇮🇳', troops: 75, income: 25, owner: 'AI' },
+      { id: 'BRA', name: 'Бразилия', flag: '🇧🇷', troops: 40, income: 20, owner: 'AI' },
+      { id: 'JPN', name: 'Япония', flag: '🇯🇵', troops: 40, income: 35, owner: 'AI' },
+      { id: 'EGY', name: 'Египет', flag: '🇪🇬', troops: 35, income: 15, owner: 'AI' },
+      { id: 'AUS', name: 'Австралия', flag: '🇦🇺', troops: 30, income: 20, owner: 'AI' },
+      { id: 'TUR', name: 'Турция', flag: '🇹🇷', troops: 50, income: 20, owner: 'AI' }
+    ];
 
-    let isUnlocked = false;
+    let countries = [];
+    let playerCountryId = null;
+    let gold = 100;
+    let turn = 1;
+    let selectedTargetId = null;
 
-    // ВСТРОЕННЫЙ РЕЗЕРВНЫЙ СЛОЙ (На случай отсутствия интернета)
-    const fallbackData = {
-      "type": "FeatureCollection",
-      "features": [{
-        "type": "Feature",
-        "properties": { "name": "Украина (Локальный контур)" },
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [22.1, 51.5], [30.5, 51.3], [34.4, 51.8], [36.8, 50.2], 
-            [38.0, 48.5], [36.5, 45.3], [33.5, 44.4], [32.5, 46.4], 
-            [29.7, 45.4], [22.1, 48.4], [22.1, 51.5]
-          ]]
-        }
-      }]
-    };
+    // Старт игры и выбор государства
+    function initGame() {
+      countries = JSON.parse(JSON.stringify(initialCountries));
+      const grid = document.getElementById('country-select-grid');
+      grid.innerHTML = '';
 
-    function setProgress(percent, statusText) {
-      if (loaderBar) loaderBar.style.width = percent + '%';
-      if (statusText && loaderStatus) loaderStatus.innerText = statusText;
+      countries.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = "bg-slate-900 hover:bg-slate-800 border border-slate-700 p-3 rounded flex items-center gap-3 transition text-left";
+        btn.innerHTML = `
+          <span class="text-2xl">${c.flag}</span>
+          <div>
+            <div class="font-bold text-xs text-white">${c.name}</div>
+            <div class="text-[10px] text-slate-400">Армия: ${c.troops} | Доход: +${c.income}</div>
+          </div>
+        `;
+        btn.onclick = () => selectPlayerCountry(c.id);
+        grid.appendChild(btn);
+      });
     }
 
-    // Функция гарантированной разблокировки сайта
-    function unlockSite(modeText) {
-      if (isUnlocked) return;
-      isUnlocked = true;
+    function selectPlayerCountry(id) {
+      playerCountryId = id;
+      const player = countries.find(c => c.id === id);
+      player.owner = 'PLAYER';
 
-      if (modeText) {
-        offlineToast.classList.remove('hidden');
-        document.getElementById('mode-badge').innerText = 'OFFLINE';
-        document.getElementById('mode-badge').className = 'text-[10px] text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded ml-2';
-        document.getElementById('status-title').innerText = '⚠️ Автономный режим';
-        document.getElementById('status-title').className = 'text-amber-400 font-bold block mb-1';
-        document.getElementById('status-desc').innerText = 'Отображаются резервные контуры. Проверьте подключение к интернету.';
+      document.getElementById('select-screen').classList.add('hidden');
+      document.getElementById('player-flag').innerText = player.flag;
+      document.getElementById('player-name').innerText = player.name;
+
+      logMsg(`ВЫ возглавили государство ${player.name}! Цель: Захватить весь мир.`);
+      updateUI();
+    }
+
+    function getPlayerStats() {
+      const playerLands = countries.filter(c => c.owner === 'PLAYER');
+      const totalTroops = playerLands.reduce((sum, c) => sum + c.troops, 0);
+      const totalIncome = playerLands.reduce((sum, c) => sum + c.income, 0);
+      return { lands: playerLands, totalTroops, totalIncome };
+    }
+
+    // Обновление интерфейса
+    function updateUI() {
+      const stats = getPlayerStats();
+      const controlPercent = Math.round((stats.lands.length / countries.length) * 100);
+
+      document.getElementById('stat-gold').innerText = gold;
+      document.getElementById('stat-income').innerText = stats.totalIncome;
+      document.getElementById('stat-troops').innerText = stats.totalTroops;
+      document.getElementById('stat-turn').innerText = turn;
+      document.getElementById('world-control').innerText = `Мировой контроль: ${controlPercent}%`;
+
+      // Проверка победы
+      if (controlPercent === 100) {
+        alert("🎉 ПОБЕДА! Вы завоевали весь мир!");
       }
 
-      loaderScreen.classList.add('opacity-0', 'pointer-events-none');
-      setTimeout(() => {
-        loaderScreen.style.display = 'none';
-      }, 500);
-    }
+      // Отрисовка списка стран
+      const container = document.getElementById('countries-list');
+      container.innerHTML = '';
 
-    // Показываем кнопку "Пропустить" через 3 секунды ожидания
-    setTimeout(() => {
-      if (!isUnlocked) skipBtn.classList.remove('hidden');
-    }, 3000);
+      countries.forEach(c => {
+        const isPlayer = c.owner === 'PLAYER';
+        const isSelected = c.id === selectedTargetId;
 
-    // 1. Инициализация карты с защитой плиток
-    setProgress(20, 'Запуск картографического движка...');
-    const map = L.map('map', { zoomControl: true }).setView([48.3, 35.0], 6.5);
+        const card = document.createElement('div');
+        card.className = `p-3 rounded border text-xs relative flex flex-col justify-between gap-2 transition ${
+          isPlayer 
+            ? 'bg-amber-950/20 border-amber-500/50' 
+            : (isSelected ? 'bg-red-950/40 border-red-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700')
+        }`;
 
-    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19
-    }).addTo(map);
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">${c.flag}</span>
+              <span class="font-bold ${isPlayer ? 'text-amber-400' : 'text-slate-200'}">${c.name}</span>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${isPlayer ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'}">
+              ${isPlayer ? 'ВАША' : 'ВРАГ'}
+            </span>
+          </div>
 
-    // Если сервер плиток не отвечает — не сбоим
-    tileLayer.on('tileerror', function(error) {
-      console.warn('Ошибка загрузки плиток карты (проверьте интернет):', error);
-    });
+          <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-400 bg-slate-950/50 p-1.5 rounded">
+            <div>⚔️ Армия: <b class="text-white">${c.troops}</b></div>
+            <div>💰 Доход: <b class="text-white">+${c.income}</b></div>
+          </div>
+        `;
 
-    // 2. Безопасный Fetch с тайм-аутом 5 секунд
-    setProgress(50, 'Загрузка точной геометрии...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 секунд макс.
+        if (!isPlayer) {
+          card.style.cursor = 'pointer';
+          card.onclick = () => selectTarget(c.id);
+        }
 
-    const redRegions = ['Crimea', 'Sevastopol', 'Luhansk', 'Donets\'k'];
-    const splitRegions = ['Zaporizhhya', 'Kherson'];
-
-    fetch('https://raw.githubusercontent.com/geohackweek/vgi-data/master/ukraine/ukraine_oblasts.geojson', { signal: controller.signal })
-      .then(res => {
-        clearTimeout(timeoutId);
-        setProgress(80, 'Рендеринг границ областей...');
-        return res.json();
-      })
-      .then(geoData => {
-        L.geoJSON(geoData, {
-          style: function(feature) {
-            const name = feature.properties.NAME_1 || feature.properties.name;
-            if (redRegions.includes(name)) return { color: '#ef4444', fillColor: '#dc2626', fillOpacity: 0.5, weight: 1.2 };
-            if (splitRegions.includes(name)) return { color: '#eab308', fillColor: '#ca8a04', fillOpacity: 0.35, weight: 1.2 };
-            return { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.25, weight: 1.2 };
-          },
-          onEachFeature: function(feature, layer) {
-            const name = feature.properties.NAME_1 || feature.properties.name || "Область";
-            layer.bindPopup(`<b style="color:black;">${name}</b>`);
-          }
-        }).addTo(map);
-
-        // Добавление белой зоны
-        renderWhiteZone();
-
-        setProgress(100, 'Готово!');
-        setTimeout(() => unlockSite(), 300);
-      })
-      .catch(err => {
-        // ОБРАБОТКА СБОЯ ИНТЕРНЕТА / ТАЙМ-АУТА
-        console.warn("Сеть недоступна, переключение на локальный резерв:", err);
-        
-        // Отрисовываем локальные резервные данные
-        L.geoJSON(fallbackData, {
-          style: { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.25, weight: 1.5 }
-        }).addTo(map);
-
-        renderWhiteZone();
-
-        // Снимаем блокировку с экрана
-        unlockSite("Офлайн-режим");
+        container.appendChild(card);
       });
 
-    function renderWhiteZone() {
-      const whiteZone = {
-        "type": "FeatureCollection",
-        "features": [{
-          "type": "Feature",
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [32.60, 46.60], [33.70, 46.85], [34.50, 47.30], [35.15, 47.45], 
-              [35.80, 47.50], [36.75, 47.85], [37.20, 48.15], [37.55, 48.50], 
-              [37.70, 48.90], [37.45, 49.30], [37.20, 49.80], [36.90, 50.10],
-              [36.80, 50.00], [37.10, 49.70], [37.35, 49.20], [37.60, 48.80], 
-              [37.45, 48.40], [37.10, 48.05], [36.65, 47.75], [35.65, 47.40], 
-              [35.00, 47.35], [34.30, 46.75], [33.50, 46.60], [32.50, 46.40]
-            ]]
-          }
-        }]
-      };
-
-      L.geoJSON(whiteZone, {
-        style: { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 0.85, weight: 2 }
-      }).addTo(map);
+      // Обновление карточки цели
+      if (selectedTargetId) {
+        const target = countries.find(c => c.id === selectedTargetId);
+        if (target && target.owner !== 'PLAYER') {
+          document.getElementById('target-card').classList.remove('hidden');
+          document.getElementById('target-name').innerText = target.name;
+          document.getElementById('target-troops').innerText = target.troops;
+        } else {
+          document.getElementById('target-card').classList.add('hidden');
+        }
+      }
     }
 
-    // Кнопки даты
-    const dateBadge = document.getElementById('date-badge');
-    document.getElementById('prev-btn').addEventListener('click', () => { dateBadge.innerText = '23 Июля 2026'; });
-    document.getElementById('next-btn').addEventListener('click', () => { dateBadge.innerText = '24 Июля 2026'; });
+    function selectTarget(id) {
+      selectedTargetId = id;
+      updateUI();
+    }
+
+    // Приказы игрока
+    function recruitTroops() {
+      if (gold < 30) {
+        logMsg("❌ Недостаточно золота для найма дивизии (нужно 30)!");
+        return;
+      }
+      gold -= 30;
+      const playerLands = countries.filter(c => c.owner === 'PLAYER');
+      const target = playerLands[Math.floor(Math.random() * playerLands.length)];
+      target.troops += 10;
+      logMsg(`⚔️ Нанято +10 войск в регионе ${target.name}.`);
+      updateUI();
+    }
+
+    function upgradeEconomy() {
+      if (gold < 50) {
+        logMsg("❌ Недостаточно золота для развития экономики (нужно 50)!");
+        return;
+      }
+      gold -= 50;
+      const playerLands = countries.filter(c => c.owner === 'PLAYER');
+      const target = playerLands[Math.floor(Math.random() * playerLands.length)];
+      target.income += 10;
+      logMsg(`🏭 Экономика ${target.name} увеличена (+10 доход).`);
+      updateUI();
+    }
+
+    function attackTarget() {
+      if (!selectedTargetId) return;
+      const target = countries.find(c => c.id === selectedTargetId);
+      const stats = getPlayerStats();
+
+      if (stats.totalTroops <= 5) {
+        logMsg("❌ Слишком маленькая армия для наступления!");
+        return;
+      }
+
+      // Механика боя
+      const attackPower = Math.floor(stats.totalTroops * (0.6 + Math.random() * 0.5));
+      const defensePower = Math.floor(target.troops * (0.7 + Math.random() * 0.5));
+
+      logMsg(`⚔️ Битва за ${target.name}! Атака: ${attackPower} vs Защита: ${defensePower}`);
+
+      if (attackPower > defensePower) {
+        // Победа
+        target.owner = 'PLAYER';
+        target.troops = Math.max(10, Math.floor(attackPower - defensePower));
+        logMsg(`🎉 ПОБЕДА! Город ${target.name} захвачен!`);
+        selectedTargetId = null;
+      } else {
+        // Поражение
+        const loss = Math.floor(stats.totalTroops * 0.3);
+        const playerLands = countries.filter(c => c.owner === 'PLAYER');
+        playerLands.forEach(l => l.troops = Math.max(2, Math.floor(l.troops * 0.7)));
+        target.troops = Math.max(5, target.troops - Math.floor(attackPower * 0.5));
+        logMsg(`💥 Атака отбита! Вы потеряли часть войск.`);
+      }
+
+      updateUI();
+    }
+
+    // Конец хода
+    function endTurn() {
+      turn++;
+      const stats = getPlayerStats();
+      gold += stats.totalIncome;
+
+      // Ход ИИ (Случайные конфликты и рост ИИ)
+      const aiCountries = countries.filter(c => c.owner === 'AI');
+      aiCountries.forEach(c => {
+        c.troops += Math.floor(Math.random() * 5) + 2; // Прирост
+      });
+
+      logMsg(`📅 Наступил Ход ${turn}. Получено +${stats.totalIncome} золота.`);
+      updateUI();
+    }
+
+    function logMsg(msg) {
+      const log = document.getElementById('battle-log');
+      log.innerHTML += `<div>${msg}</div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    initGame();
   </script>
 </body>
 </html>
