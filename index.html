@@ -22,6 +22,30 @@
 </head>
 <body class="bg-slate-950 text-white font-sans h-screen flex flex-col m-0 overflow-hidden">
 
+  <!-- ПОЛНОЭКРАННЫЙ ЭКРАН ЗАГРУЗКИ (Блокирует доступ к сайту) -->
+  <div id="loader-screen" class="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+    <div class="flex flex-col items-center gap-5 text-center max-w-xs w-full">
+      
+      <!-- Индикатор вращения -->
+      <div class="relative flex items-center justify-center">
+        <div class="w-16 h-16 border-4 border-slate-800 border-t-red-500 rounded-full animate-spin"></div>
+        <div class="absolute w-6 h-6 bg-red-500/20 rounded-full animate-ping"></div>
+      </div>
+
+      <!-- Текстовый статус -->
+      <div class="space-y-1">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Military Summary Map</h2>
+        <p id="loader-status" class="text-xs text-slate-400">Инициализация карты...</p>
+      </div>
+
+      <!-- Шкала прогресса -->
+      <div class="w-full bg-slate-900 border border-slate-800 h-2 rounded-full overflow-hidden p-0.5">
+        <div id="loader-bar" class="bg-red-500 h-full w-1/12 rounded-full transition-all duration-300"></div>
+      </div>
+      
+    </div>
+  </div>
+
   <!-- Шапка -->
   <header class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
     <div class="flex items-center gap-2">
@@ -40,12 +64,6 @@
     
     <!-- Карта -->
     <div class="flex-1 h-full relative p-1">
-      <!-- Индикатор загрузки точных границ -->
-      <div id="loader" class="absolute inset-0 z-[2000] bg-slate-950/80 flex flex-col items-center justify-center gap-3 backdrop-blur-sm">
-        <div class="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-        <span class="text-xs text-slate-300 font-medium">Загрузка точных границ Google/OSM...</span>
-      </div>
-
       <div id="map" class="h-full w-full rounded-lg z-0"></div>
 
       <!-- Легенда -->
@@ -96,7 +114,19 @@
   </footer>
 
   <script>
+    // Элементы загрузочного экрана
+    const loaderScreen = document.getElementById('loader-screen');
+    const loaderStatus = document.getElementById('loader-status');
+    const loaderBar = document.getElementById('loader-bar');
+
+    // Функция обновления шкалы прогресса
+    function setProgress(percent, statusText) {
+      loaderBar.style.width = percent + '%';
+      if (statusText) loaderStatus.innerText = statusText;
+    }
+
     // 1. Инициализация карты
+    setProgress(25, 'Подключение к картографическому серверу...');
     const map = L.map('map', { zoomControl: true }).setView([48.3, 35.0], 6.5);
 
     // Подложка CartoDB Dark Matter
@@ -106,30 +136,29 @@
       maxZoom: 19
     }).addTo(map);
 
-    const loader = document.getElementById('loader');
-
-    // Список регионов под контролем РФ (для точной раскраски по официальным границам областей)
     const redRegions = ['Crimea', 'Sevastopol', 'Luhansk', 'Donets\'k'];
     const splitRegions = ['Zaporizhhya', 'Kherson'];
 
-    // 2. Скачиваем РЕАЛЬНЫЕ точные границы областей (GeoJSON)
+    // 2. Загрузка геоданных высокой точности
+    setProgress(50, 'Загрузка точных векторных границ (Google/OSM)...');
+
     fetch('https://raw.githubusercontent.com/geohackweek/vgi-data/master/ukraine/ukraine_oblasts.geojson')
-      .then(res => res.json())
+      .then(res => {
+        setProgress(75, 'Обработка геометрии областей и линии фронта...');
+        return res.json();
+      })
       .then(geoData => {
-        // Отрисовываем каждую область по её ТОЧНЫМ GPS-границам
+        // Отрисовка областей
         L.geoJSON(geoData, {
           style: function(feature) {
             const name = feature.properties.NAME_1 || feature.properties.name;
 
-            // Полностью под контролем РФ (Крым, Донецк, Луганск)
             if (redRegions.includes(name)) {
               return { color: '#ef4444', fillColor: '#dc2626', fillOpacity: 0.5, weight: 1.2 };
             }
-            // Частичный контроль (Запорожье, Херсон)
             if (splitRegions.includes(name)) {
               return { color: '#eab308', fillColor: '#ca8a04', fillOpacity: 0.35, weight: 1.2 };
             }
-            // Под контролем Украины (Остальные области)
             return { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.25, weight: 1.2 };
           },
           onEachFeature: function(feature, layer) {
@@ -138,7 +167,7 @@
           }
         }).addTo(map);
 
-        // 3. Рисуем ТОЧНУЮ Белую зону боев вдоль Днепра и Донбасса
+        // 3. Добавление белой зоны боев
         const whiteZone = {
           "type": "FeatureCollection",
           "features": [{
@@ -149,7 +178,6 @@
                 [32.60, 46.60], [33.70, 46.85], [34.50, 47.30], [35.15, 47.45], 
                 [35.80, 47.50], [36.75, 47.85], [37.20, 48.15], [37.55, 48.50], 
                 [37.70, 48.90], [37.45, 49.30], [37.20, 49.80], [36.90, 50.10],
-                // Описание линии соприкосновения
                 [36.80, 50.00], [37.10, 49.70], [37.35, 49.20], [37.60, 48.80], 
                 [37.45, 48.40], [37.10, 48.05], [36.65, 47.75], [35.65, 47.40], 
                 [35.00, 47.35], [34.30, 46.75], [33.50, 46.60], [32.50, 46.40]
@@ -162,12 +190,22 @@
           style: { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 0.85, weight: 2 }
         }).addTo(map);
 
-        // Скрываем индикатор загрузки
-        loader.style.display = 'none';
+        // Завершение загрузки
+        setProgress(100, 'Готово! Открытие карты...');
+
+        // Разблокировка сайта через 400мс после завершения
+        setTimeout(() => {
+          loaderScreen.classList.add('opacity-0', 'pointer-events-none');
+          setTimeout(() => {
+            loaderScreen.style.display = 'none';
+          }, 500);
+        }, 400);
+
       })
       .catch(err => {
         console.error(err);
-        loader.innerHTML = '<span class="text-red-400 text-xs">Ошибка загрузки геоданных. Проверьте интернет.</span>';
+        loaderStatus.innerText = 'Ошибка соединения. Попробуйте обновить страницу.';
+        loaderBar.classList.replace('bg-red-500', 'bg-amber-500');
       });
 
     // Переключение дат
