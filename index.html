@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Military Summary Map</title>
+
+  <!-- Tailwind CSS для стилей -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS и JS для работы карты -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-slate-950 text-white font-sans h-screen flex flex-col m-0 overflow-hidden">
+
+  <!-- Шапка -->
+  <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
+    <h1 class="text-md font-bold text-red-500 uppercase tracking-wider">
+      Military Summary Map
+    </h1>
+    <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700">
+      День: 2026-07-24
+    </span>
+  </header>
+
+  <!-- Основной контент: Карта + Сводка -->
+  <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+    <!-- Контейнер карты -->
+    <div class="flex-1 h-full relative p-2">
+      <div id="map" class="h-full w-full rounded-xl z-0"></div>
+    </div>
+
+    <!-- Боковая панель со сводкой -->
+    <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/90 overflow-y-auto">
+      <h2 class="font-semibold text-sm mb-3 text-slate-300">Сводка за день</h2>
+      <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700 text-sm mb-3">
+        <span class="text-xs text-red-400 block mb-1">10:30 • Центральный сектор</span>
+        <p id="summary-text" class="text-slate-300 text-xs">
+          Обновлены границы зон контроля на основе подтвержденных геопривязок.
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Шкала переключения дат (Timeline) -->
+  <footer class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2 z-10">
+    <button id="prev-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">
+      ← Пред. день
+    </button>
+    <span class="text-xs text-slate-400">Выбор даты</span>
+    <button id="next-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">
+      След. день →
+    </button>
+  </footer>
+
+  <!-- Логика карты -->
+  <script>
+    // 1. Инициализируем карту
+    const map = L.map('map').setView([48.0, 37.8], 10);
+
+    // Подключаем плитки OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // 2. Добавляем полигон фронта (серая/оспариваемая зона)
+    const sampleFrontlineData = {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "properties": { "name": "Оспариваемая территория" },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [37.80, 48.00],
+                [37.90, 48.05],
+                [37.85, 48.15],
+                [37.75, 48.10],
+                [37.80, 48.00]
+              ]
+            ]
+          }
+        }
+      ]
+    };
+
+    L.geoJSON(sampleFrontlineData, {
+      style: {
+        color: '#eab308',
+        fillColor: '#ca8a04',
+        fillOpacity: 0.4,
+        weight: 2
+      }
+    }).addTo(map);
+
+    // 3. Добавляем маркер события
+    const customIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
+
+    L.marker([48.02, 37.82], { icon: customIcon })
+      .addTo(map)
+      .bindPopup('<b style="color: black;">Локальные бои</b><br><span style="color: black;">Фиксация активности.</span>');
+
+    // 4. Переключение дат
+    const dateBadge = document.getElementById('date-badge');
+    const summaryText = document.getElementById('summary-text');
+    
+    document.getElementById('prev-btn').addEventListener('click', () => {
+      dateBadge.innerText = 'День: 2026-07-23';
+      summaryText.innerText = 'Архивные данные за 23 июля. Позиции без изменений.';
+    });
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+      dateBadge.innerText = 'День: 2026-07-24';
+      summaryText.innerText = 'Обновлены границы зон контроля на основе подтвержденных геопривязок.';
+    });
+  </script>
+</body>
+</html>
+    
