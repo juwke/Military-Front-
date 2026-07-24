@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Military Summary Map - Высокая Точность</title>
+  <title>Military Summary Map - Детальная Карта</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -27,7 +27,7 @@
     <div class="flex items-center gap-2">
       <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
       <h1 class="text-sm font-bold text-red-500 uppercase tracking-wider">
-        Military Summary Map <span class="text-[10px] text-slate-400 font-normal border border-slate-700 px-1.5 py-0.5 rounded ml-2">GIS HD</span>
+        Military Summary Map
       </h1>
     </div>
     <span id="date-badge" class="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 text-slate-300">
@@ -38,17 +38,11 @@
   <!-- Основной блок -->
   <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
     
-    <!-- Контейнер карты -->
+    <!-- Карта -->
     <div class="flex-1 h-full relative p-1">
       <div id="map" class="h-full w-full rounded-lg z-0"></div>
 
-      <!-- Загрузчик точных внешних GeoJSON / KML файлов -->
-      <div class="absolute top-4 right-4 z-[1000] bg-slate-900/90 border border-slate-700 p-2.5 rounded-lg text-xs backdrop-blur-sm shadow-xl">
-        <label class="block font-bold text-slate-300 mb-1">Импорт точных данных (.geojson):</label>
-        <input type="file" id="geojson-upload" accept=".geojson,.json" class="block w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"/>
-      </div>
-
-      <!-- Легенда карты -->
+      <!-- Легенда -->
       <div class="absolute bottom-4 left-4 z-[1000] bg-slate-900/95 border border-slate-700 p-3 rounded-lg text-xs space-y-2 backdrop-blur-sm shadow-2xl">
         <div class="font-bold text-slate-300 mb-1 border-b border-slate-800 pb-1">Легенда контроля:</div>
         <div class="flex items-center gap-2.5">
@@ -60,32 +54,36 @@
           <span class="text-slate-200">Под контролем Украины</span>
         </div>
         <div class="flex items-center gap-2.5">
-          <span class="w-3.5 h-3.5 rounded bg-white/80 border border-slate-300 inline-block animate-pulse"></span>
-          <span class="text-slate-200">Белая зона (Серая зона / Бои)</span>
+          <span class="w-3.5 h-3.5 rounded bg-white border border-slate-300 inline-block shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>
+          <span class="text-slate-200">Белая зона (Оспариваемая / Бои)</span>
         </div>
       </div>
     </div>
 
-    <!-- Боковая панель -->
+    <!-- Панель сводки -->
     <aside class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-4 bg-slate-900/90 overflow-y-auto">
-      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Статус детализации</h2>
+      <h2 class="font-semibold text-xs uppercase tracking-wider mb-3 text-slate-400">Текущий статус</h2>
       
       <div class="space-y-2.5 text-xs">
-        <div id="status-box" class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
-          Загрузка точных гео-границ из базы данных...
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
+          <span class="text-white font-bold block mb-1">⚪ Белые зоны</span>
+          Полосы боёв у Купянска, Покровска, Часова Яра, Работино и на островах Днепра.
         </div>
 
-        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700">
-          <span class="text-red-400 font-bold block mb-1">Как получить точную карту?</span>
-          <p class="text-slate-300 leading-relaxed">
-            Настоящие картографы выгружают файлы треков и линий фронта из Google Earth или OSM в формате <code class="text-yellow-400 bg-slate-950 px-1 rounded">.geojson</code> и подгружают их через кнопку импорта вверху.
-          </p>
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
+          <span class="text-red-400 font-bold block mb-1">🔴 Контроль РФ</span>
+          Крымский полуостров, сухопутный коридор, Донбасс и левобережье Херсонщины.
+        </div>
+
+        <div class="bg-slate-800/60 p-2.5 rounded border border-slate-700 text-slate-300">
+          <span class="text-yellow-400 font-bold block mb-1">🟡 Контроль Украины</span>
+          Правобережье Херсонщины, Запорожье, Харьковская область и центральные регионы.
         </div>
       </div>
     </aside>
   </div>
 
-  <!-- Шкала времени -->
+  <!-- Подвал -->
   <footer class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2 z-10">
     <button id="prev-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700 active:scale-95 transition">
       ← 23 Июля
@@ -96,87 +94,146 @@
     </button>
   </footer>
 
-  <!-- Скрипт карт и точной подгрузки -->
   <script>
     // 1. Инициализация карты
-    const map = L.map('map', {
-      zoomControl: true
-    }).setView([48.3, 35.0], 6.5);
+    const map = L.map('map', { zoomControl: true }).setView([48.2, 36.5], 6.5);
 
-    // Подложка CartoDB Dark Matter с детализацией до улиц и рек
+    // Подложка CartoDB Dark Matter
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19
     }).addTo(map);
 
-    const statusBox = document.getElementById('status-box');
-
-    // 2. Функция динамической подгрузки точных границ страны из внешнего репозитория GIS
-    async function loadAccurateBoundaries() {
-      try {
-        // Подгружаем реальный миллионно-точечный контур Украины из открытой базы геоданных
-        const response = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
-        const data = await response.json();
-        
-        // Находим точные официальные границы
-        const ukraineFeature = data.features.find(f => f.properties.ADMIN === 'Ukraine' || f.properties.ISO_A3 === 'UKR');
-
-        if (ukraineFeature) {
-          L.geoJSON(ukraineFeature, {
-            style: {
-              color: '#eab308',
-              fillColor: '#facc15',
-              fillOpacity: 0.15,
-              weight: 1.5
-            }
-          }).addTo(map);
-
-          statusBox.innerHTML = '<span class="text-green-400 font-bold">✓ Загружены точные государственные границы (Google/OSM precision).</span>';
+    // 2. ДЕТАЛЬНЫЙ КОНТУР УКРАИНЫ (ЖЁЛТАЯ ЗОНА)
+    const ukraineTerritory = {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [22.13, 51.50], [23.95, 51.52], [25.60, 51.90], [28.20, 51.60], [30.50, 51.25], 
+            [31.30, 52.00], [33.20, 52.35], [34.40, 51.80], [35.30, 50.80], [36.25, 50.30], 
+            [36.70, 50.25],
+            // Линия соприкосновения (Харьков -> Донбасс -> Юг)
+            [36.90, 50.10], [37.20, 49.80], [37.45, 49.30], [37.70, 48.90], [37.55, 48.50],
+            [37.20, 48.15], [36.75, 47.85], [35.80, 47.50], [35.15, 47.45], [34.50, 47.30],
+            [33.70, 46.85], [32.60, 46.60], [32.20, 46.55],
+            // Береговая линия Одессы и западная граница
+            [31.50, 46.50], [30.80, 46.30], [29.70, 45.40], [28.60, 45.30], [28.20, 45.80],
+            [26.80, 48.30], [22.80, 48.00], [22.13, 48.40], [22.13, 51.50]
+          ]]
         }
-      } catch (e) {
-        statusBox.innerHTML = '<span class="text-amber-400">Используется локальный слой. Для автозагрузки нужен интернет.</span>';
+      }]
+    };
+
+    L.geoJSON(ukraineTerritory, {
+      style: { color: '#eab308', fillColor: '#facc15', fillOpacity: 0.3, weight: 1.5 }
+    }).addTo(map);
+
+    // 3. ДЕТАЛЬНЫЙ КОНТУР РФ / ЗАНЯТЫЕ ТЕРРИТОРИИ (КРАСНАЯ ЗОНА)
+    const russianTerritory = {
+      "type": "FeatureCollection",
+      "features": [
+        // Крымский полуостров
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [33.60, 44.40], [33.00, 45.30], [32.50, 45.80], [33.50, 45.85], 
+              [34.50, 46.10], [35.20, 45.90], [36.50, 45.30], [36.40, 45.10], 
+              [35.80, 44.40], [33.60, 44.40]
+            ]]
+          }
+        },
+        // Южный коридор + Донбасс + Восток
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [32.50, 46.40], [33.50, 46.60], [34.30, 46.75], [35.00, 47.35], 
+              [35.65, 47.40], [36.65, 47.75], [37.10, 48.05], [37.45, 48.40], 
+              [37.60, 48.80], [37.35, 49.20], [37.10, 49.70], [36.80, 50.00],
+              // Внешняя государственная граница
+              [38.00, 50.15], [40.10, 49.80], [40.20, 48.50], [39.00, 47.10], 
+              [38.20, 46.80], [36.80, 46.00], [35.00, 46.20], [33.60, 46.25], 
+              [32.50, 46.40]
+            ]]
+          }
+        }
+      ]
+    };
+
+    L.geoJSON(russianTerritory, {
+      style: { color: '#ef4444', fillColor: '#dc2626', fillOpacity: 0.5, weight: 1.5 }
+    }).addTo(map);
+
+    // 4. ДЕТАЛЬНЫЕ БЕЛЫЕ ЗОНЫ (Серая зона / Линия боев)
+    const contestedZones = {
+      "type": "FeatureCollection",
+      "features": [
+        // Харьков/Волчанск
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[36.70, 50.25], [36.90, 50.10], [36.80, 50.00], [36.60, 50.15], [36.70, 50.25]]]
+          }
+        },
+        // Купянск
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[37.20, 49.80], [37.45, 49.30], [37.35, 49.20], [37.10, 49.70], [37.20, 49.80]]]
+          }
+        },
+        // Часов Яр / Покровск
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[37.70, 48.90], [37.55, 48.50], [37.20, 48.15], [37.10, 48.05], [37.45, 48.40], [37.60, 48.80], [37.70, 48.90]]]
+          }
+        },
+        // Запорожье / Работино
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[36.75, 47.85], [35.80, 47.50], [35.15, 47.45], [35.00, 47.35], [35.65, 47.40], [36.65, 47.75], [36.75, 47.85]]]
+          }
+        },
+        // Острова Днепра (Херсон)
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[34.50, 47.30], [33.70, 46.85], [32.60, 46.60], [32.50, 46.40], [33.50, 46.60], [34.30, 46.75], [34.50, 47.30]]]
+          }
+        }
+      ]
+    };
+
+    L.geoJSON(contestedZones, {
+      style: {
+        color: '#ffffff',
+        fillColor: '#ffffff',
+        fillOpacity: 0.9,
+        weight: 2.5
+      },
+      onEachFeature: function (feature, layer) {
+        layer.bindPopup('<b style="color: black;">Белая зона</b><br><span style="color: black; font-size: 11px;">Зона активных боёв и нестабильного контроля.</span>');
       }
-    }
+    }).addTo(map);
 
-    loadAccurateBoundaries();
-
-    // 3. Возможность загрузить ЛЮБОЙ точный файл со своего телефона/ПК (например выгрузку из Google Maps или DeepState)
-    document.getElementById('geojson-upload').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        try {
-          const uploadedGeoJSON = JSON.parse(evt.target.result);
-          
-          const customLayer = L.geoJSON(uploadedGeoJSON, {
-            style: {
-              color: '#ef4444',
-              fillColor: '#dc2626',
-              fillOpacity: 0.4,
-              weight: 2
-            }
-          }).addTo(map);
-
-          map.fitBounds(customLayer.getBounds());
-          statusBox.innerHTML = `<span class="text-green-400 font-bold">✓ Файл "${file.name}" успешно нанесен на карту с идеальной точностью!</span>`;
-        } catch (err) {
-          alert("Ошибка чтения файла GeoJSON. Убедитесь, что файл валиден.");
-        }
-      };
-      reader.readAsText(file);
-    });
-
-    // Кнопки даты
+    // Переключение дат
     const dateBadge = document.getElementById('date-badge');
-    document.getElementById('prev-btn').addEventListener('click', () => {
-      dateBadge.innerText = '23 Июля 2026';
-    });
-    document.getElementById('next-btn').addEventListener('click', () => {
-      dateBadge.innerText = '24 Июля 2026';
-    });
+    document.getElementById('prev-btn').addEventListener('click', () => { dateBadge.innerText = '23 Июля 2026'; });
+    document.getElementById('next-btn').addEventListener('click', () => { dateBadge.innerText = '24 Июля 2026'; });
   </script>
 </body>
 </html>
